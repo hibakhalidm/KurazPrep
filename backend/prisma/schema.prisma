@@ -3,27 +3,13 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────
 
-enum AcademicStream {
-  NATURAL_SCIENCE
-  SOCIAL_SCIENCE
-}
-
-enum CurriculumVersion {
-  NEW_CURRICULUM
-  OLD_ARCHIVE
-}
-
-enum Difficulty {
-  EASY
-  MEDIUM
-  HARD
-}
+// ─── Enums removed for SQLite compatibility ──────────────
 
 // ─── Auth Models ─────────────────────────────────────────────────────
 
@@ -32,7 +18,7 @@ model User {
   email        String         @unique
   passwordHash String         @map("password_hash")
   name         String
-  stream       AcademicStream @default(NATURAL_SCIENCE)
+  stream       String         @default("NATURAL_SCIENCE")
   gradeLevel   Int            @default(12) @map("grade_level")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
@@ -63,7 +49,7 @@ model RefreshToken {
 model Subject {
   id          String         @id @default(uuid())
   name        String
-  stream      AcademicStream
+  stream      String
   gradeLevel  Int            @map("grade_level")
   iconName    String         @map("icon_name")
   contentHash String?        @map("content_hash") // SHA-256 for delta sync
@@ -92,10 +78,10 @@ model ShortNote {
   unitId            String            @map("unit_id")
   unit              Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
   title             String
-  contentMarkdown   String            @map("content_markdown") @db.Text
+  contentMarkdown   String            @map("content_markdown")
   orderIndex        Int               @default(0) @map("order_index")
   isHighYield       Boolean           @default(false) @map("is_high_yield")
-  curriculumVersion CurriculumVersion @default(NEW_CURRICULUM) @map("curriculum_version")
+  curriculumVersion String            @default("NEW_CURRICULUM") @map("curriculum_version")
   isVerified        Boolean           @default(true) @map("is_verified")
   updatedAt         DateTime          @updatedAt @map("updated_at")
 
@@ -106,14 +92,14 @@ model Question {
   id                String            @id @default(uuid())
   unitId            String            @map("unit_id")
   unit              Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  prompt            String            @db.Text
+  prompt            String
   options           Json              // Array of { id: "A"|"B"|"C"|"D", text: "..." }
   correctOptionId   String            @map("correct_option_id")
-  explanation       String            @db.Text
-  difficulty        Difficulty        @default(MEDIUM)
+  explanation       String
+  difficulty        String            @default("MEDIUM")
   sourceExamYear    Int?              @map("source_exam_year")
   isHighYield       Boolean           @default(false) @map("is_high_yield")
-  curriculumVersion CurriculumVersion @default(NEW_CURRICULUM) @map("curriculum_version")
+  curriculumVersion String            @default("NEW_CURRICULUM") @map("curriculum_version")
   attempts          QuizAttemptDetail[]
 
   @@map("questions")
