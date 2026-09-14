@@ -1,47 +1,72 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SubjectCard } from '../../src/components/SubjectCard';
+import { db } from '../../src/core/database/db';
+import { localSubjects } from '../../src/core/database/schema';
+import { syncCurriculum } from '../../src/core/network/sync';
+import { colors } from '../../src/core/theme/colors';
+import { typography } from '../../src/core/theme/typography';
 
 export default function SubjectsScreen() {
   const router = useRouter();
+  const [subjects, setSubjects] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Placeholder data
-  const subjects = [
-    { id: '1', name: 'Physics', stream: 'Natural', grade: 12 },
-  ];
+  const loadLocalSubjects = async () => {
+    try {
+      const data = await db.select().from(localSubjects).execute();
+      setSubjects(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await syncCurriculum(); // Fetch from API and save to DB
+    await loadLocalSubjects(); // Reload from DB
+    setIsRefreshing(false);
+  };
+
+  useEffect(() => {
+    loadLocalSubjects();
+    // Auto sync on mount if empty
+    db.select().from(localSubjects).execute().then((data) => {
+      if (data.length === 0) handleRefresh();
+    });
+  }, []);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Your Subjects</Text>
+      <Text style={styles.header}>Curriculum</Text>
+      
       <FlatList
         data={subjects}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.primary} />}
         renderItem={({ item }) => (
-          <TouchableOpacity 
-            style={styles.card}
-            onPress={() => router.push(`/subject/${item.id}`)}
-          >
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardSubtitle}>Grade {item.grade} • {item.stream} Stream</Text>
-          </TouchableOpacity>
+          <SubjectCard 
+            id={item.id}
+            name={item.name}
+            stream={item.stream}
+            gradeLevel={item.gradeLevel}
+            onPress={(id) => router.push(`/subject/${id}`)}
+          />
         )}
+        ListEmptyComponent={
+          !isRefreshing ? (
+            <Text style={styles.emptyText}>No subjects available. Pull to refresh!</Text>
+          ) : null
+        }
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f5f5f5' },
-  header: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: '#333' },
-  card: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '600', color: '#0D7377' },
-  cardSubtitle: { fontSize: 14, color: '#666', marginTop: 4 }
+  container: { flex: 1, padding: 20, backgroundColor: colors.background },
+  header: { ...typography.h1, marginBottom: 24 },
+  emptyText: { ...typography.body, textAlign: 'center', marginTop: 40 }
 });
