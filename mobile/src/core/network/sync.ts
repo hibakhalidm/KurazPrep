@@ -1,6 +1,7 @@
 import { api } from './api';
 import { db } from '../database/db';
-import { localSubjects, localUnits, localShortNotes, localQuestions } from '../database/schema';
+import { localSubjects, localUnits, localShortNotes, localQuestions, localQuizAttempts } from '../database/schema';
+import { eq } from 'drizzle-orm';
 
 // A simple sync function for MVP.
 // In a production app, we would use transactions and contentHashes to optimize this.
@@ -71,7 +72,38 @@ export const syncCurriculum = async () => {
     }
     return true;
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error('Curriculum sync error:', error);
     return false;
+  }
+};
+
+export const syncQuizAttempts = async () => {
+  try {
+    const pendingAttempts = await db
+      .select()
+      .from(localQuizAttempts)
+      .where(eq(localQuizAttempts.isSynced, false))
+      .execute();
+
+    if (pendingAttempts.length === 0) return true;
+
+    for (const attempt of pendingAttempts) {
+      await api.post('/progress/quiz', {
+        subjectId: attempt.subjectId,
+        score: attempt.score,
+        totalQuestions: attempt.totalQuestions,
+      });
+
+      // Mark as synced
+      await db
+        .update(localQuizAttempts)
+        .set({ isSynced: true })
+        .where(eq(localQuizAttempts.id, attempt.id))
+        .execute();
+    }
+    return true;
+  } catch (error) {
+    console.error('Quiz sync error:', error);
+    return false; // Silently fail, will retry later
   }
 };
