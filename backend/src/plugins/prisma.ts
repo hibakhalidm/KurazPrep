@@ -17,13 +17,15 @@ const prismaPlugin: FastifyPluginAsync = async (server) => {
   });
 
   await prisma.$connect();
-  server.log.info('✅ Connected to PostgreSQL via Prisma');
+  server.log.info('✅ Connected to SQLite via Prisma');
 
+  // Decorate the fastify instance with prisma
   server.decorate('prisma', prisma);
 
-  server.addHook('onClose', async () => {
-    await prisma.$disconnect();
-    server.log.info('Disconnected from PostgreSQL');
+  // Hook into application shutdown
+  server.addHook('onClose', async (server) => {
+    await server.prisma.$disconnect();
+    server.log.info('Disconnected from SQLite');
   });
 };
 
