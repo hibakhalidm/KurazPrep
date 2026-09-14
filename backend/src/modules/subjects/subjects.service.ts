@@ -1,4 +1,4 @@
-import type { PrismaClient, AcademicStream } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { NotFoundError } from '../../utils/errors.js';
 
 export class SubjectsService {
@@ -11,8 +11,8 @@ export class SubjectsService {
     stream?: string;
     gradeLevel?: number;
   }) {
-    const where: { stream?: AcademicStream; gradeLevel?: number } = {};
-    if (filters.stream) where.stream = filters.stream as AcademicStream;
+    const where: { stream?: string; gradeLevel?: number } = {};
+    if (filters.stream) where.stream = filters.stream;
     if (filters.gradeLevel) where.gradeLevel = filters.gradeLevel;
 
     const subjects = await this.prisma.subject.findMany({
